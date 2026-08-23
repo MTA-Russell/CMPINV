@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#14181c">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Camp Inventory">
+<link rel="manifest" href='data:application/manifest+json,{"name":"MagTec Camp Inventory","short_name":"Camp Inventory","start_url":".","display":"standalone","background_color":"%2314181c","theme_color":"%2314181c"}'>
+<title>MagTec Camp Inventory</title>
+<style>
+  :root{
+    --bg:#14181c; --panel:#1c2127; --panel-line:#2b323b;
+    --text:#eef1f4; --sub:#8d98a3; --amber:#f5a623;
+    --amber-dim:#3a2f14; --danger:#e5533d; --ok:#3ba776;
+  }
+  *{box-sizing:border-box;}
+  html,body{height:100%;}
+  body{
+    margin:0; background:var(--bg); color:var(--text);
+    font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+    display:flex; align-items:center; justify-content:center;
+    min-height:100vh; padding:20px;
+  }
+  .card{
+    width:100%; max-width:520px; background:var(--panel);
+    border:1px solid var(--panel-line); border-radius:10px; overflow:hidden;
+  }
+  .head{ padding:18px 22px 14px; border-bottom:1px solid var(--panel-line); }
+  .head .tag{
+    font-size:11px; letter-spacing:.14em; text-transform:uppercase;
+    color:var(--amber); font-weight:700;
+  }
+  .head h1{ margin:4px 0 0; font-size:19px; font-weight:600; }
+  .progress-track{ height:4px; background:var(--panel-line); width:100%; }
+  .progress-fill{ height:100%; background:var(--amber); width:0%; transition:width .25s ease; }
+  .step-count{ padding:10px 22px 0; font-size:12px; color:var(--sub); font-variant-numeric:tabular-nums; }
+  .body{
+    padding:22px; min-height:230px;
+    display:flex; flex-direction:column; justify-content:center;
+  }
+  .q-label{ font-size:16px; font-weight:600; margin-bottom:4px; line-height:1.35; }
+  .item-name{ font-size:23px; font-weight:700; margin-bottom:4px; line-height:1.25; }
+  .item-pn{ font-size:14px; color:var(--sub); margin-bottom:14px; }
+  .q-help{ font-size:13px; color:var(--sub); margin-bottom:16px; line-height:1.45; }
+  input[type=text], input[type=number], input[type=date]{
+    width:100%; background:var(--bg); border:1px solid var(--panel-line);
+    color:var(--text); font-size:17px; padding:14px; border-radius:7px;
+    font-family:inherit; outline:none;
+  }
+  input:focus{ border-color:var(--amber); }
+  .yn-row{ display:flex; gap:12px; }
+  .yn-btn{
+    flex:1; padding:15px; border-radius:7px; border:1px solid var(--panel-line);
+    background:var(--bg); color:var(--text); font-size:15px; font-weight:600;
+    cursor:pointer; font-family:inherit;
+  }
+  .yn-btn.primary{ background:var(--amber); color:#20180a; border-color:var(--amber); }
+  .foot{ display:flex; gap:10px; padding:16px 22px 22px; border-top:1px solid var(--panel-line); }
+  button.nav{
+    border:none; border-radius:7px; padding:14px 18px;
+    font-size:15px; font-weight:600; cursor:pointer; font-family:inherit;
+  }
+  .btn-back{ background:transparent; color:var(--sub); border:1px solid var(--panel-line); }
+  .btn-skip{ background:transparent; color:var(--sub); border:1px solid var(--panel-line); flex:1; }
+  .btn-next{ background:var(--amber); color:#20180a; flex:1; }
+  .section-note{
+    display:inline-block; font-size:11px; letter-spacing:.1em; text-transform:uppercase;
+    color:var(--amber); background:var(--amber-dim); padding:3px 8px;
+    border-radius:4px; margin-bottom:10px;
+  }
+  .summary-list{ font-size:14px; line-height:1.6; max-height:290px; overflow-y:auto; }
+  .summary-list .row{
+    display:flex; justify-content:space-between; gap:10px;
+    border-bottom:1px solid var(--panel-line); padding:8px 0;
+  }
+  .summary-list .pn{ font-size:11px; color:var(--sub); display:block; }
+  .summary-list .v{ text-align:right; font-weight:700; color:var(--amber); white-space:nowrap; }
+  .opt-list{ display:flex; flex-direction:column; gap:10px; margin-bottom:16px; }
+  .opt-list .yn-btn{ display:block; text-align:left; padding:16px; }
+  .opt-title{ display:block; font-size:18px; font-weight:800; letter-spacing:.03em; }
+  .opt-sub{ display:block; font-size:12.5px; font-weight:400; color:var(--sub); margin-top:3px; line-height:1.35; }
+  .yn-btn.primary .opt-sub{ color:#5c4715; }
+  .banner{ border:1px solid var(--danger); background:rgba(229,83,61,.12); border-radius:8px; padding:14px; font-size:13px; line-height:1.5; }
+  .banner b{ display:block; margin-bottom:5px; font-size:15px; }
+  .sent{ border:1px solid var(--ok); background:rgba(59,167,118,.12); border-radius:8px; padding:14px; font-size:13px; line-height:1.5; margin-bottom:16px; }
+  .sent b{ display:block; margin-bottom:5px; font-size:15px; color:var(--ok); }
+  .hidden{ display:none !important; }
+</style>
+</head>
+<body>
+
+<div class="card">
+  <div class="head">
+    <div class="tag">MagTec Alaska</div>
+    <h1>Camp Inventory</h1>
+  </div>
+  <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
+  <div class="step-count" id="stepCount"></div>
+
+  <div class="body" id="body">
+    <div class="q-help">Loading the list.</div>
+  </div>
+
+  <div class="foot hidden" id="foot">
+    <button class="nav btn-back" id="backBtn">Back</button>
+    <button class="nav btn-skip hidden" id="skipBtn">Skip</button>
+    <button class="nav btn-next" id="nextBtn">Next</button>
+  </div>
+</div>
+
+<script>
+(function(){
+"use strict";
+
+window.addEventListener('error', function(e){
+  var b = document.getElementById('body');
+  if(b) b.innerHTML = '<div class="banner"><b>Something broke</b>' + String(e.message) + '</div>';
+});
+
+// ---- settings ----
+var MAIL_TO    = 'nsrentals@magtecalaska.com';
+var LIST_TITLE = 'CAMP INVENTORY';
+var LIST_FILE  = 'items.json';
+// ------------------
+
+var items   = [];
+var mode    = '';
+var answers = {};
+var order   = {};
+var req     = {};
+var emailBody = '', emailSubject = '';
+var i = 0;
+var loadFailed = false;
+
+var REQ_FIELDS = [
+  {k:'d',   label:'Item description',    t:'text'},
+  {k:'p',   label:'Item / part number',  t:'text'},
+  {k:'min', label:'Order at quantity',   t:'number', help:'The lowest it should get on the shelf before reordering.'},
+  {k:'max', label:'Full stock quantity', t:'number', help:'How many on the shelf means fully stocked.'}
+];
+
+var bodyEl     = document.getElementById('body');
+var footEl     = document.getElementById('foot');
+var nextBtn    = document.getElementById('nextBtn');
+var backBtn    = document.getElementById('backBtn');
+var skipBtn    = document.getElementById('skipBtn');
+var progressEl = document.getElementById('progressFill');
+var countEl    = document.getElementById('stepCount');
+
+function esc(v){
+  return String(v == null ? '' : v)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function today(){
+  var d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+}
+
+function itemKey(it){ return it.d + '\u0000' + it.p; }
+
+function hideChrome(){
+  footEl.classList.add('hidden');
+  countEl.textContent = '';
+  progressEl.style.width = '0%';
+}
+
+function start(){
+  fetch(LIST_FILE, { cache:'no-store' })
+    .then(function(r){ if(!r.ok) throw new Error('missing'); return r.json(); })
+    .then(function(json){
+      var arr = Array.isArray(json) ? json : (json && json.items) || [];
+      items = arr.map(function(o){
+        if(typeof o === 'string') return { d:o, p:'' };
+        return { d:String(o.d || ''), p:String(o.p || '') };
+      }).filter(function(o){ return o.d || o.p; });
+      showMenu();
+    })
+    .catch(function(){
+      items = [];
+      loadFailed = true;
+      showMenu();
+    });
+}
+
+function showMenu(){
+  hideChrome();
+  mode = '';
+  answers = {}; order = {}; req = {}; i = 0;
+
+  if(!items.length){
+    bodyEl.innerHTML =
+        '<div class="q-label">No items in the list</div>'
+      + '<div class="q-help">' + (loadFailed
+          ? 'The list did not load. Do you want to request items be added?'
+          : 'Nothing has been added yet. Do you want to request items be added?') + '</div>'
+      + '<div class="yn-row">'
+      +   '<button type="button" class="yn-btn primary" data-action="startreq">Yes</button>'
+      +   '<button type="button" class="yn-btn" data-action="reload">No, try loading again</button>'
+      + '</div>';
+    return;
+  }
+
+  bodyEl.innerHTML =
+      '<div class="q-help" style="margin-bottom:16px;">' + items.length + ' item' + (items.length===1?'':'s') + ' in the list. What do you need?</div>'
+    + '<div class="opt-list">'
+    +   '<button type="button" class="yn-btn primary" data-action="startorder">'
+    +     '<span class="opt-title">ORDER ITEMS</span>'
+    +     '<span class="opt-sub">Go through the list and enter what you need.</span>'
+    +   '</button>'
+    +   '<button type="button" class="yn-btn" data-action="startreq">'
+    +     '<span class="opt-title">REQUEST ITEMS BE ADDED</span>'
+    +     '<span class="opt-sub">Something is not on the list and should be.</span>'
+    +   '</button>'
+    + '</div>';
+}
+
+function lastStep(){
+  return (mode === 'order') ? items.length + 2 : REQ_FIELDS.length + 2;
+}
+
+function chrome(){
+  var t = lastStep() + 1;
+  progressEl.style.width = Math.min(100, Math.round((i/t)*100)) + '%';
+  countEl.textContent = 'Step ' + (i+1) + ' of ' + t;
+  backBtn.style.visibility = 'visible';
+}
+
+function render(){
+  chrome();
+  footEl.classList.remove('hidden');
+  nextBtn.textContent = 'Next';
+  nextBtn.classList.remove('hidden');
+  skipBtn.classList.add('hidden');
+
+  var html = '';
+
+  if(i === 0){
+    html = '<div class="q-label">Your name</div>'
+         + '<input type="text" id="input" value="' + esc(answers.name) + '">';
+  }
+  else if(i === 1){
+    html = '<div class="q-label">Date</div>'
+         + '<input type="date" id="input" value="' + esc(answers.date || today()) + '">';
+  }
+  else if(mode === 'order'){
+    if(i < items.length + 2){
+      var it = items[i-2], key = itemKey(it);
+      skipBtn.classList.remove('hidden');
+      nextBtn.textContent = 'Add';
+      html = '<div class="q-help" style="margin-bottom:6px;">Item ' + (i-1) + ' of ' + items.length + '</div>'
+           + '<div class="item-name">' + esc(it.d || it.p) + '</div>'
+           + (it.p && it.d ? '<div class="item-pn">Part # ' + esc(it.p) + '</div>' : '')
+           + '<div class="q-help">How many do you need? Skip if you do not need it.</div>'
+           + '<input type="number" inputmode="numeric" id="input" value="' + esc(order[key] ? order[key].q : '') + '">';
+    } else {
+      html = orderSummary();
+      nextBtn.textContent = 'Finish';
+    }
+  }
+  else {
+    if(i < REQ_FIELDS.length + 2){
+      var f = REQ_FIELDS[i-2];
+      html = '<div class="q-label">' + esc(f.label) + '</div>'
+           + (f.help ? '<div class="q-help">' + esc(f.help) + '</div>' : '')
+           + '<input type="' + f.t + '"' + (f.t === 'number' ? ' inputmode="numeric"' : '')
+           + ' id="input" value="' + esc(req[f.k]) + '">';
+    } else {
+      html = reqSummary();
+      nextBtn.textContent = 'Finish';
+    }
+  }
+
+  bodyEl.innerHTML = html;
+  var inp = document.getElementById('input');
+  if(inp){ try { inp.focus(); } catch(e){} }
+}
+
+function orderSummary(){
+  var keys = Object.keys(order);
+  var h = '<div class="section-note">Ready to send</div>';
+  if(!keys.length){
+    h += '<div class="q-help">Nothing was ordered. Go back if that is wrong.</div>';
+    return h;
+  }
+  h += '<div class="q-help">' + keys.length + ' item' + (keys.length>1?'s':'') + ' on this order.</div><div class="summary-list">';
+  for(var n = 0; n < keys.length; n++){
+    var o = order[keys[n]];
+    h += '<div class="row"><div class="k">' + esc(o.d || o.p)
+       + (o.p && o.d ? '<span class="pn">Part # ' + esc(o.p) + '</span>' : '')
+       + '</div><div class="v">' + esc(o.q) + '</div></div>';
+  }
+  return h + '</div>';
+}
+
+function reqSummary(){
+  var rows = [
+    ['Description', req.d],
+    ['Part #',      req.p],
+    ['Order at',    req.min],
+    ['Full stock',  req.max]
+  ];
+  var h = '<div class="section-note">Ready to send</div>'
+        + '<div class="q-help">Check it over.</div><div class="summary-list">';
+  for(var n = 0; n < rows.length; n++){
+    var v = rows[n][1];
+    h += '<div class="row"><div class="k">' + esc(rows[n][0]) + '</div>'
+       + '<div class="v">' + ((v === undefined || v === '') ? '&mdash;' : esc(v)) + '</div></div>';
+  }
+  return h + '</div>';
+}
+
+function saveCurrent(){
+  var el = document.getElementById('input');
+  if(!el) return;
+  if(i === 0){ answers.name = el.value; return; }
+  if(i === 1){ answers.date = el.value || today(); return; }
+  if(mode === 'order' && i < items.length + 2){
+    var it = items[i-2], key = itemKey(it), v = el.value.trim();
+    if(v === '' || Number(v) === 0) delete order[key];
+    else order[key] = { d:it.d, p:it.p, q:v };
+    return;
+  }
+  if(mode === 'request' && i < REQ_FIELDS.length + 2){
+    req[REQ_FIELDS[i-2].k] = el.value;
+  }
+}
+
+function forward(){
+  if(i >= lastStep()){ finish(); return; }
+  saveCurrent();
+  i++;
+  render();
+}
+
+function skip(){
+  delete order[itemKey(items[i-2])];
+  i++;
+  render();
+}
+
+function back(){
+  if(i === 0){ showMenu(); return; }
+  saveCurrent();
+  i--;
+  render();
+}
+
+document.addEventListener('click', function(ev){
+  var btn = ev.target.closest ? ev.target.closest('button') : null;
+  if(!btn) return;
+  var a = btn.getAttribute('data-action');
+  try {
+    if(a === 'reload'){ window.location.reload(); return; }
+    if(a === 'startorder'){ mode = 'order';   i = 0; render(); return; }
+    if(a === 'startreq'){   mode = 'request'; i = 0; render(); return; }
+    if(a === 'mailto'){     doMailto(); return; }
+    if(a === 'startover'){  showMenu(); return; }
+    if(btn.id === 'nextBtn'){ forward(); return; }
+    if(btn.id === 'backBtn'){ back();    return; }
+    if(btn.id === 'skipBtn'){ skip();    return; }
+  } catch(err){
+    bodyEl.innerHTML = '<div class="banner"><b>Something broke</b>' + esc(err.message) + '</div>';
+  }
+});
+
+document.addEventListener('keydown', function(ev){
+  if(ev.key === 'Enter' && ev.target && ev.target.id === 'input'){
+    ev.preventDefault();
+    forward();
+  }
+});
+
+function finish(){
+  var lines, keys, n;
+
+  if(mode === 'order'){
+    keys = Object.keys(order);
+    emailSubject = LIST_TITLE + ' ORDER - ' + (answers.date || today()) + ' - ' + (answers.name || '');
+    lines = [
+      'SEND TO: ' + MAIL_TO,
+      '',
+      LIST_TITLE + ' ORDER',
+      '',
+      'Name: ' + (answers.name || ''),
+      'Date: ' + (answers.date || today()),
+      'Items ordered: ' + keys.length,
+      '',
+      '--------------------------------',
+      'QTY   PART #          DESCRIPTION',
+      '--------------------------------'
+    ];
+    for(n = 0; n < keys.length; n++){
+      var o = order[keys[n]];
+      lines.push(String(o.q).padEnd(6,' ') + (o.p || '').padEnd(16,' ') + o.d);
+    }
+    lines.push('--------------------------------');
+  } else {
+    emailSubject = LIST_TITLE + ' ADD REQUEST - ' + (req.d || '') + ' - ' + (answers.name || '');
+    lines = [
+      'SEND TO: ' + MAIL_TO,
+      '',
+      LIST_TITLE + ' - REQUEST TO ADD AN ITEM',
+      '',
+      'Name: ' + (answers.name || ''),
+      'Date: ' + (answers.date || today()),
+      '',
+      'Item description: '    + (req.d   || ''),
+      'Item / part number: '  + (req.p   || ''),
+      'Order at quantity: '   + (req.min || ''),
+      'Full stock quantity: ' + (req.max || '')
+    ];
+  }
+
+  emailBody = lines.join('\n');
+  showSend(false);
+}
+
+function showSend(sent){
+  hideChrome();
+  var what = (mode === 'order') ? 'order' : 'request';
+
+  if(!sent){
+    bodyEl.innerHTML =
+        '<div class="section-note">Ready to send</div>'
+      + '<div class="q-help" style="margin-bottom:16px;">Send the ' + what + ' before you do anything else.</div>'
+      + '<div class="opt-list">'
+      +   '<button type="button" class="yn-btn primary" data-action="mailto">'
+      +     '<span class="opt-title">SEND EMAIL</span>'
+      +     '<span class="opt-sub">Opens the email filled in and addressed. Just hit send.</span>'
+      +   '</button>'
+      + '</div>';
+    return;
+  }
+
+  bodyEl.innerHTML =
+      '<div class="sent"><b>Email opened</b>Send it from your mail app.</div>'
+    + '<div class="opt-list">'
+    +   '<button type="button" class="yn-btn" data-action="mailto">'
+    +     '<span class="opt-title">SEND EMAIL AGAIN</span>'
+    +     '<span class="opt-sub">If the mail app did not open.</span>'
+    +   '</button>'
+    +   '<button type="button" class="yn-btn primary" data-action="startover">'
+    +     '<span class="opt-title">START OVER</span>'
+    +     '<span class="opt-sub">Back to the menu.</span>'
+    +   '</button>'
+    + '</div>';
+}
+
+function doMailto(){
+  window.location.href = 'mailto:' + MAIL_TO
+    + '?subject=' + encodeURIComponent(emailSubject)
+    + '&body=' + encodeURIComponent(emailBody);
+  showSend(true);
+}
+
+start();
+
+})();
+</script>
+
+</body>
+</html>
