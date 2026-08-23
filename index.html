@@ -415,20 +415,19 @@ function finish(){
       'Name: ' + (answers.name || ''),
       'Date: ' + (answers.date || today()),
       'Items ordered: ' + keys.length,
-      '',
-      '------------------------------------------------------------',
-      'WANT  HAVE  MIN   MAX   PART #          DESCRIPTION',
-      '------------------------------------------------------------'
+      ''
     ];
     for(n = 0; n < keys.length; n++){
       var o = order[keys[n]];
-      lines.push(String(o.q).padEnd(6,' ')
-               + String(o.have || '-').padEnd(6,' ')
-               + String(o.min  || '-').padEnd(6,' ')
-               + String(o.max  || '-').padEnd(6,' ')
-               + (o.p || '').padEnd(16,' ') + o.d);
+      lines.push('--------------------------------');
+      lines.push((n+1) + '. ' + o.d);
+      if(o.p) lines.push('Part #: ' + o.p);
+      lines.push('WANT: ' + o.q
+               + ' / HAVE: ' + (o.have === '' ? '-' : o.have)
+               + ' / ORDER AT: ' + (o.min || '-')
+               + ' / FULL STOCK: ' + (o.max || '-'));
     }
-    lines.push('------------------------------------------------------------');
+    lines.push('--------------------------------');
   } else {
     emailSubject = LIST_TITLE + ' ADD REQUEST - ' + (req.d || '') + ' - ' + (answers.name || '');
     lines = [
