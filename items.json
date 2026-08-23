@@ -1,5 +1,18 @@
 {
   "list": "Camp Inventory",
   "updated": "2026-08-23",
-  "items": []
+  "items": [
+    {
+      "d": "test item",
+      "p": "Bleets 1234",
+      "min": "5",
+      "max": "15"
+    },
+    {
+      "d": "test 2",
+      "p": "bleets 6532",
+      "min": "55",
+      "max": "104"
+    }
+  ]
 }
