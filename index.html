@@ -87,6 +87,18 @@
   .banner b{ display:block; margin-bottom:5px; font-size:15px; }
   .sent{ border:1px solid var(--ok); background:rgba(59,167,118,.12); border-radius:8px; padding:14px; font-size:13px; line-height:1.5; margin-bottom:16px; }
   .sent b{ display:block; margin-bottom:5px; font-size:15px; color:var(--ok); }
+  .minmax{ display:flex; gap:10px; margin-bottom:18px; }
+  .mm{
+    flex:1; background:var(--bg); border:1px solid var(--panel-line);
+    border-radius:7px; padding:10px 12px; text-align:center;
+  }
+  .mmk{ display:block; font-size:10px; letter-spacing:.1em; text-transform:uppercase; color:var(--sub); font-weight:700; }
+  .mmv{ display:block; font-size:22px; font-weight:800; color:var(--amber); margin-top:2px; }
+  .fl{
+    display:block; font-size:12px; letter-spacing:.08em; text-transform:uppercase;
+    color:var(--sub); font-weight:700; margin:0 0 6px;
+  }
+  .body input[type=number]{ margin-bottom:14px; }
   .hidden{ display:none !important; }
 </style>
 </head>
@@ -176,7 +188,8 @@ function start(){
       var arr = Array.isArray(json) ? json : (json && json.items) || [];
       items = arr.map(function(o){
         if(typeof o === 'string') return { d:o, p:'' };
-        return { d:String(o.d || ''), p:String(o.p || '') };
+        return { d:String(o.d || ''), p:String(o.p || ''),
+                 min:String(o.min || ''), max:String(o.max || '') };
       }).filter(function(o){ return o.d || o.p; });
       showMenu();
     })
@@ -249,14 +262,21 @@ function render(){
   }
   else if(mode === 'order'){
     if(i < items.length + 2){
-      var it = items[i-2], key = itemKey(it);
+      var it = items[i-2], key = itemKey(it), cur = order[key];
       skipBtn.classList.remove('hidden');
       nextBtn.textContent = 'Add';
       html = '<div class="q-help" style="margin-bottom:6px;">Item ' + (i-1) + ' of ' + items.length + '</div>'
            + '<div class="item-name">' + esc(it.d || it.p) + '</div>'
            + (it.p && it.d ? '<div class="item-pn">Part # ' + esc(it.p) + '</div>' : '')
-           + '<div class="q-help">How many do you need? Skip if you do not need it.</div>'
-           + '<input type="number" inputmode="numeric" id="input" value="' + esc(order[key] ? order[key].q : '') + '">';
+           + '<div class="minmax">'
+           +   '<div class="mm"><span class="mmk">Order at</span><span class="mmv">' + esc(it.min || '-') + '</span></div>'
+           +   '<div class="mm"><span class="mmk">Full stock</span><span class="mmv">' + esc(it.max || '-') + '</span></div>'
+           + '</div>'
+           + '<label class="fl">How many on the shelf now</label>'
+           + '<input type="number" inputmode="numeric" id="onhand" value="' + esc(cur ? cur.have : '') + '">'
+           + '<label class="fl">How many do you want</label>'
+           + '<input type="number" inputmode="numeric" id="input" value="' + esc(cur ? cur.q : '') + '">'
+           + '<div class="q-help" style="margin:12px 0 0;">Order more or less than full stock if that is what it actually needs. Skip if you do not need it.</div>';
     } else {
       html = orderSummary();
       nextBtn.textContent = 'Finish';
@@ -291,7 +311,11 @@ function orderSummary(){
   for(var n = 0; n < keys.length; n++){
     var o = order[keys[n]];
     h += '<div class="row"><div class="k">' + esc(o.d || o.p)
-       + (o.p && o.d ? '<span class="pn">Part # ' + esc(o.p) + '</span>' : '')
+       + '<span class="pn">'
+       +   (o.p ? 'Part # ' + esc(o.p) + '  &middot;  ' : '')
+       +   'have ' + esc(o.have === '' ? '-' : o.have)
+       +   '  &middot;  ' + esc(o.min || '-') + '/' + esc(o.max || '-')
+       + '</span>'
        + '</div><div class="v">' + esc(o.q) + '</div></div>';
   }
   return h + '</div>';
@@ -321,8 +345,10 @@ function saveCurrent(){
   if(i === 1){ answers.date = el.value || today(); return; }
   if(mode === 'order' && i < items.length + 2){
     var it = items[i-2], key = itemKey(it), v = el.value.trim();
+    var oh = document.getElementById('onhand');
+    var have = oh ? oh.value.trim() : '';
     if(v === '' || Number(v) === 0) delete order[key];
-    else order[key] = { d:it.d, p:it.p, q:v };
+    else order[key] = { d:it.d, p:it.p, q:v, have:have, min:it.min, max:it.max };
     return;
   }
   if(mode === 'request' && i < REQ_FIELDS.length + 2){
@@ -390,15 +416,19 @@ function finish(){
       'Date: ' + (answers.date || today()),
       'Items ordered: ' + keys.length,
       '',
-      '--------------------------------',
-      'QTY   PART #          DESCRIPTION',
-      '--------------------------------'
+      '------------------------------------------------------------',
+      'WANT  HAVE  MIN   MAX   PART #          DESCRIPTION',
+      '------------------------------------------------------------'
     ];
     for(n = 0; n < keys.length; n++){
       var o = order[keys[n]];
-      lines.push(String(o.q).padEnd(6,' ') + (o.p || '').padEnd(16,' ') + o.d);
+      lines.push(String(o.q).padEnd(6,' ')
+               + String(o.have || '-').padEnd(6,' ')
+               + String(o.min  || '-').padEnd(6,' ')
+               + String(o.max  || '-').padEnd(6,' ')
+               + (o.p || '').padEnd(16,' ') + o.d);
     }
-    lines.push('--------------------------------');
+    lines.push('------------------------------------------------------------');
   } else {
     emailSubject = LIST_TITLE + ' ADD REQUEST - ' + (req.d || '') + ' - ' + (answers.name || '');
     lines = [
