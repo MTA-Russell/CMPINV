@@ -81,6 +81,9 @@
     background:none; border:none; color:var(--sub); font-size:12px;
     text-decoration:underline; cursor:pointer; font-family:inherit; padding:0;
   }
+  .rbtns{ display:flex; gap:6px; flex-shrink:0; }
+  .rbtns button{ font-size:13px; padding:7px 12px; }
+  .rbtns button.x{ font-size:16px; padding:7px 11px; }
   .hidden{ display:none !important; }
 </style>
 </head>
@@ -246,7 +249,10 @@ function renderList(){
         +      '  &middot;  full at ' + esc(it.max || '-')
         +    '</div>'
         +  '</div>'
-        +  '<button type="button" data-a="del" data-n="' + n + '">&times;</button></div>';
+        +  '<div class="rbtns">'
+        +    '<button type="button" data-a="edit" data-n="' + n + '">Edit</button>'
+        +    '<button type="button" class="x" data-a="del" data-n="' + n + '">&times;</button>'
+        +  '</div></div>';
     }
     h += '</div>';
   }
@@ -256,36 +262,82 @@ function renderList(){
 
   footEl.innerHTML =
       '<button class="btn wide" data-a="add">Add an item</button>'
+    + '<button class="btn wide" data-a="export">Export</button>'
     + '<button class="btn primary wide" data-a="save">Save</button>';
 }
 
 // ---------- add ----------
-function renderAdd(){
-  view = 'add';
+var editIdx = -1;
+
+function renderForm(idx){
+  view = 'form';
+  editIdx = (idx === undefined) ? -1 : idx;
+  var it = (editIdx >= 0) ? items[editIdx] : { d:'', p:'', min:'', max:'' };
+
   bodyEl.innerHTML =
-      '<div class="q-label">Add an item</div>'
+      '<div class="q-label">' + (editIdx >= 0 ? 'Edit item' : 'Add an item') + '</div>'
     + '<div class="q-help">All four fields.</div>'
-    + '<label class="f">Item description</label><input type="text" id="fd">'
-    + '<label class="f">Item / part number</label><input type="text" id="fp">'
+    + '<label class="f">Item description</label><input type="text" id="fd" value="' + esc(it.d) + '">'
+    + '<label class="f">Item / part number</label><input type="text" id="fp" value="' + esc(it.p) + '">'
     + '<div class="two">'
-    +   '<div><label class="f">Order at qty</label><input type="number" inputmode="numeric" id="fmin"></div>'
-    +   '<div><label class="f">Full stock qty</label><input type="number" inputmode="numeric" id="fmax"></div>'
+    +   '<div><label class="f">Order at qty</label><input type="number" inputmode="numeric" id="fmin" value="' + esc(it.min) + '"></div>'
+    +   '<div><label class="f">Full stock qty</label><input type="number" inputmode="numeric" id="fmax" value="' + esc(it.max) + '"></div>'
     + '</div>';
+
   footEl.innerHTML =
       '<button class="btn wide" data-a="cancel">Cancel</button>'
-    + '<button class="btn primary wide" data-a="addsave">Add to list</button>';
+    + '<button class="btn primary wide" data-a="formsave">' + (editIdx >= 0 ? 'Update item' : 'Add to list') + '</button>';
+
   var f = document.getElementById('fd');
   if(f){ try { f.focus(); } catch(e){} }
 }
 
-function addItem(){
+function formSave(){
   var it = { d:val('fd'), p:val('fp'), min:val('fmin'), max:val('fmax') };
   if(!it.d){
     msg = { k:'err', t:'Needs a description', m:'Every item needs at least a description.' };
     renderList(); return;
   }
-  items.push(it);
-  msg = { k:'warn', t:'Added, not saved yet', m:'Hit Save to publish it.' };
+  if(editIdx >= 0){
+    items[editIdx] = it;
+    msg = { k:'warn', t:'Changed, not saved yet', m:'Hit Save to publish it.' };
+  } else {
+    items.push(it);
+    msg = { k:'warn', t:'Added, not saved yet', m:'Hit Save to publish it.' };
+  }
+  editIdx = -1;
+  renderList();
+}
+
+// ---------- export ----------
+function csvCell(v){
+  v = String(v == null ? '' : v);
+  return /[",\n]/.test(v) ? '"' + v.replace(/"/g,'""') + '"' : v;
+}
+
+function exportList(){
+  if(!items.length){
+    msg = { k:'err', t:'Nothing to export', m:'The list is empty.' };
+    renderList(); return;
+  }
+  var rows = [['Description','Part Number','Order At Qty','Full Stock Qty']];
+  for(var n = 0; n < items.length; n++){
+    rows.push([items[n].d, items[n].p, items[n].min, items[n].max]);
+  }
+  var csv = rows.map(function(r){ return r.map(csvCell).join(','); }).join('\r\n');
+
+  // BOM so Excel reads the encoding right
+  var blob = new Blob(['\ufeff' + csv], { type:'text/csv;charset=utf-8;' });
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href = url;
+  a.download = LIST_NAME.replace(/\s+/g,'_') + '_' + new Date().toISOString().slice(0,10) + '.csv';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(function(){ URL.revokeObjectURL(url); }, 8000);
+
+  msg = { k:'ok', t:'Exported', m:'Opens in Excel. One row per item, four columns.' };
   renderList();
 }
 
@@ -324,10 +376,12 @@ document.addEventListener('click', function(ev){
   try {
     if(a === 'setup')   { renderSetup(); return; }
     if(a === 'testcfg') { testCfg(btn);  return; }
-    if(a === 'add')     { renderAdd();   return; }
-    if(a === 'cancel')  { renderList();  return; }
-    if(a === 'addsave') { addItem();     return; }
-    if(a === 'save')    { save(btn);     return; }
+    if(a === 'add')      { renderForm();  return; }
+    if(a === 'edit')     { renderForm(Number(btn.getAttribute('data-n'))); return; }
+    if(a === 'cancel')   { renderList();  return; }
+    if(a === 'formsave') { formSave();    return; }
+    if(a === 'export')   { exportList();  return; }
+    if(a === 'save')     { save(btn);     return; }
     if(a === 'del'){
       items.splice(Number(btn.getAttribute('data-n')), 1);
       msg = { k:'warn', t:'Removed, not saved yet', m:'Hit Save to publish it.' };
