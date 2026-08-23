@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#14181c">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Manage List">
+<title>MagTec Inventory List Manager</title>
+<style>
+  :root{
+    --bg:#14181c; --panel:#1c2127; --panel-line:#2b323b;
+    --text:#eef1f4; --sub:#8d98a3; --amber:#f5a623;
+    --amber-dim:#3a2f14; --danger:#e5533d; --ok:#3ba776;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; background:var(--bg); color:var(--text);
+    font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+    display:flex; justify-content:center; padding:20px; min-height:100vh;
+  }
+  .card{
+    width:100%; max-width:620px; background:var(--panel);
+    border:1px solid var(--panel-line); border-radius:10px;
+    overflow:hidden; align-self:flex-start;
+  }
+  .head{
+    padding:18px 22px 14px; border-bottom:1px solid var(--panel-line);
+    display:flex; justify-content:space-between; align-items:center; gap:12px;
+  }
+  .head .tag{
+    font-size:11px; letter-spacing:.14em; text-transform:uppercase;
+    color:var(--amber); font-weight:700;
+  }
+  .head h1{ margin:4px 0 0; font-size:19px; font-weight:600; }
+  .pill{
+    font-size:12px; color:var(--sub); background:var(--bg);
+    border:1px solid var(--panel-line); border-radius:20px;
+    padding:5px 12px; white-space:nowrap;
+  }
+  .body{ padding:20px 22px; }
+  .q-label{ font-size:16px; font-weight:600; margin-bottom:4px; }
+  .q-help{ font-size:13px; color:var(--sub); margin-bottom:16px; line-height:1.45; }
+  label.f{ display:block; font-size:12px; color:var(--sub); margin:0 0 5px; text-transform:uppercase; letter-spacing:.08em; font-weight:700; }
+  input[type=text], input[type=number], input[type=password]{
+    width:100%; background:var(--bg); border:1px solid var(--panel-line);
+    color:var(--text); font-size:16px; padding:12px 13px; border-radius:7px;
+    font-family:inherit; outline:none; margin-bottom:14px;
+  }
+  input:focus{ border-color:var(--amber); }
+  .two{ display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  .btn{
+    border:1px solid var(--panel-line); background:var(--bg); color:var(--text);
+    font-size:15px; font-weight:600; padding:13px 16px; border-radius:7px;
+    cursor:pointer; font-family:inherit;
+  }
+  .btn.primary{ background:var(--amber); color:#20180a; border-color:var(--amber); }
+  .btn.wide{ width:100%; }
+  .btn:disabled{ opacity:.5; cursor:default; }
+  .row-list{ max-height:380px; overflow-y:auto; margin-bottom:16px; }
+  .irow{
+    display:flex; justify-content:space-between; align-items:center; gap:10px;
+    border-bottom:1px solid var(--panel-line); padding:11px 0;
+  }
+  .irow .d{ font-size:15px; font-weight:600; }
+  .irow .m{ font-size:12px; color:var(--sub); margin-top:2px; }
+  .irow button{
+    background:none; border:1px solid var(--panel-line); border-radius:6px;
+    color:var(--sub); font-size:16px; cursor:pointer; padding:7px 11px;
+    font-family:inherit; flex-shrink:0;
+  }
+  .irow button:hover{ color:var(--danger); border-color:var(--danger); }
+  .empty{ text-align:center; color:var(--sub); padding:26px 0; font-size:14px; }
+  .foot{ padding:16px 22px 22px; border-top:1px solid var(--panel-line); display:flex; gap:10px; }
+  .msg{ border-radius:8px; padding:12px 14px; font-size:13px; line-height:1.5; margin-bottom:16px; }
+  .msg.ok{ border:1px solid var(--ok); background:rgba(59,167,118,.12); }
+  .msg.err{ border:1px solid var(--danger); background:rgba(229,83,61,.12); }
+  .msg.warn{ border:1px solid var(--amber); background:var(--amber-dim); }
+  .msg b{ display:block; margin-bottom:4px; }
+  .linkbtn{
+    background:none; border:none; color:var(--sub); font-size:12px;
+    text-decoration:underline; cursor:pointer; font-family:inherit; padding:0;
+  }
+  .hidden{ display:none !important; }
+</style>
+</head>
+<body>
+
+<div class="card">
+  <div class="head">
+    <div>
+      <div class="tag">MagTec Alaska</div>
+      <h1>Camp Inventory List</h1>
+    </div>
+    <div class="pill" id="pill">0 items</div>
+  </div>
+  <div class="body" id="body"></div>
+  <div class="foot" id="foot"></div>
+</div>
+
+<script>
+(function(){
+"use strict";
+
+var CFG_KEY = 'magtec_inv_cfg';
+var FILE     = 'items.json';
+var BRANCH   = 'main';
+var LIST_NAME = 'Camp Inventory';
+
+var cfg   = loadCfg();
+var items = [];
+var sha   = null;
+var view  = 'list';
+var msg   = null;
+
+var bodyEl = document.getElementById('body');
+var footEl = document.getElementById('foot');
+var pillEl = document.getElementById('pill');
+
+function loadCfg(){
+  try { return JSON.parse(window.localStorage.getItem(CFG_KEY)) || null; } catch(e){ return null; }
+}
+function saveCfg(c){
+  try { window.localStorage.setItem(CFG_KEY, JSON.stringify(c)); } catch(e){}
+  cfg = c;
+}
+function esc(v){
+  return String(v == null ? '' : v)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function val(id){
+  var e = document.getElementById(id);
+  return e ? e.value.trim() : '';
+}
+function api(){
+  return 'https://api.github.com/repos/' + cfg.owner + '/' + cfg.repo + '/contents/' + FILE;
+}
+function repoApi(){
+  return 'https://api.github.com/repos/' + cfg.owner + '/' + cfg.repo;
+}
+function headers(){
+  return { 'Authorization':'Bearer ' + cfg.token, 'Accept':'application/vnd.github+json' };
+}
+
+// ---------- setup ----------
+function renderSetup(){
+  view = 'setup';
+  pillEl.classList.add('hidden');
+  bodyEl.innerHTML =
+      '<div class="q-label">One time setup</div>'
+    + '<div class="q-help">This connects the list to your repository. It is saved on this device only. Do not do this on a shared computer.</div>'
+    + (msg ? '<div class="msg ' + msg.k + '"><b>' + esc(msg.t) + '</b>' + esc(msg.m) + '</div>' : '')
+    + '<label class="f">GitHub username</label>'
+    + '<input type="text" id="owner" value="' + esc(cfg ? cfg.owner : 'MTA-Russell') + '" autocapitalize="off" autocorrect="off">'
+    + '<label class="f">Repository name</label>'
+    + '<input type="text" id="repo" value="' + esc(cfg ? cfg.repo : '') + '" autocapitalize="off" autocorrect="off" placeholder="the repo holding items.json">'
+    + '<label class="f">Access token</label>'
+    + '<input type="password" id="token" value="' + esc(cfg ? cfg.token : '') + '" autocapitalize="off" autocorrect="off" placeholder="github_pat_...">';
+  footEl.innerHTML = '<button class="btn primary wide" data-a="testcfg">Test and save</button>';
+  msg = null;
+}
+
+function testCfg(btn){
+  var c = { owner: val('owner'), repo: val('repo'), token: val('token') };
+  if(!c.owner || !c.repo || !c.token){
+    msg = { k:'err', t:'Missing something', m:'Fill in all three.' };
+    renderSetup(); return;
+  }
+  btn.disabled = true; btn.textContent = 'Testing...';
+  var saved = cfg; cfg = c;
+  // Check the repo itself, not the file. The file may not exist yet.
+  fetch(repoApi(), { headers: headers(), cache:'no-store' })
+    .then(function(r){
+      if(r.status === 401) throw new Error('The token was rejected. Check you copied all of it.');
+      if(r.status === 404) throw new Error('Cannot find that repo. Check the spelling, and check the token lists this repo under Repository access.');
+      if(r.status === 403) throw new Error('Access refused. The token needs Contents set to Read and write.');
+      if(!r.ok) throw new Error('GitHub said ' + r.status + '.');
+      return r.json();
+    })
+    .then(function(){
+      saveCfg(c);
+      msg = { k:'ok', t:'Connected', m:'Saved on this device. You will not have to do this again.' };
+      load();
+    })
+    .catch(function(e){
+      cfg = saved;
+      msg = { k:'err', t:'Did not connect', m:e.message };
+      renderSetup();
+    });
+}
+
+// ---------- load ----------
+function load(){
+  view = 'list';
+  pillEl.classList.remove('hidden');
+  bodyEl.innerHTML = '<div class="empty">Loading the list.</div>';
+  footEl.innerHTML = '';
+
+  fetch(api() + '?ref=' + BRANCH, { headers: headers(), cache:'no-store' })
+    .then(function(r){
+      if(r.status === 404){ sha = null; return { content:'' }; }   // file not there yet
+      if(!r.ok) throw new Error('GitHub said ' + r.status + '.');
+      return r.json();
+    })
+    .then(function(j){
+      sha = j.sha || null;
+      items = [];
+      if(j.content){
+        var txt = decodeURIComponent(escape(atob(j.content.replace(/\n/g,''))));
+        try {
+          var parsed = JSON.parse(txt);
+          var arr = Array.isArray(parsed) ? parsed : (parsed.items || []);
+          items = arr.map(function(o){
+            return { d:String(o.d||''), p:String(o.p||''), min:String(o.min||''), max:String(o.max||'') };
+          }).filter(function(o){ return o.d || o.p; });
+        } catch(e){}
+      }
+      renderList();
+    })
+    .catch(function(e){
+      msg = { k:'err', t:'Could not load', m:e.message };
+      renderSetup();
+    });
+}
+
+// ---------- list ----------
+function renderList(){
+  view = 'list';
+  pillEl.classList.remove('hidden');
+  pillEl.textContent = items.length + (items.length === 1 ? ' item' : ' items');
+
+  var h = msg ? '<div class="msg ' + msg.k + '"><b>' + esc(msg.t) + '</b>' + esc(msg.m) + '</div>' : '';
+  msg = null;
+
+  if(!items.length){
+    h += '<div class="empty">The list is empty. Add your first item.</div>';
+  } else {
+    h += '<div class="row-list">';
+    for(var n = 0; n < items.length; n++){
+      var it = items[n];
+      h += '<div class="irow"><div>'
+        +    '<div class="d">' + esc(it.d) + '</div>'
+        +    '<div class="m">'
+        +      (it.p ? 'Part # ' + esc(it.p) : 'No part number')
+        +      '  &middot;  order at ' + esc(it.min || '-')
+        +      '  &middot;  full at ' + esc(it.max || '-')
+        +    '</div>'
+        +  '</div>'
+        +  '<button type="button" data-a="del" data-n="' + n + '">&times;</button></div>';
+    }
+    h += '</div>';
+  }
+
+  h += '<div style="text-align:right;"><button class="linkbtn" data-a="setup">Connection settings</button></div>';
+  bodyEl.innerHTML = h;
+
+  footEl.innerHTML =
+      '<button class="btn wide" data-a="add">Add an item</button>'
+    + '<button class="btn primary wide" data-a="save">Save</button>';
+}
+
+// ---------- add ----------
+function renderAdd(){
+  view = 'add';
+  bodyEl.innerHTML =
+      '<div class="q-label">Add an item</div>'
+    + '<div class="q-help">All four fields.</div>'
+    + '<label class="f">Item description</label><input type="text" id="fd">'
+    + '<label class="f">Item / part number</label><input type="text" id="fp">'
+    + '<div class="two">'
+    +   '<div><label class="f">Order at qty</label><input type="number" inputmode="numeric" id="fmin"></div>'
+    +   '<div><label class="f">Full stock qty</label><input type="number" inputmode="numeric" id="fmax"></div>'
+    + '</div>';
+  footEl.innerHTML =
+      '<button class="btn wide" data-a="cancel">Cancel</button>'
+    + '<button class="btn primary wide" data-a="addsave">Add to list</button>';
+  var f = document.getElementById('fd');
+  if(f){ try { f.focus(); } catch(e){} }
+}
+
+function addItem(){
+  var it = { d:val('fd'), p:val('fp'), min:val('fmin'), max:val('fmax') };
+  if(!it.d){
+    msg = { k:'err', t:'Needs a description', m:'Every item needs at least a description.' };
+    renderList(); return;
+  }
+  items.push(it);
+  msg = { k:'warn', t:'Added, not saved yet', m:'Hit Save to publish it.' };
+  renderList();
+}
+
+// ---------- save ----------
+function save(btn){
+  btn.disabled = true; btn.textContent = 'Saving...';
+  var payload = JSON.stringify({ list: LIST_NAME, updated: new Date().toISOString().slice(0,10), items: items }, null, 2);
+  var b64 = btoa(unescape(encodeURIComponent(payload)));
+  var body = { message: 'Update inventory list', content: b64, branch: BRANCH };
+  if(sha) body.sha = sha;
+
+  fetch(api(), { method:'PUT', headers: headers(), body: JSON.stringify(body) })
+    .then(function(r){
+      if(r.status === 409 || r.status === 422){
+        throw new Error('The file changed somewhere else. Reload and try again.');
+      }
+      if(r.status === 403) throw new Error('The token needs Contents set to Read and write.');
+      if(!r.ok) throw new Error('GitHub said ' + r.status + '.');
+      return r.json();
+    })
+    .then(function(j){
+      sha = j.content && j.content.sha;
+      msg = { k:'ok', t:'Saved', m:'The order app will pick it up in about a minute.' };
+      renderList();
+    })
+    .catch(function(e){
+      msg = { k:'err', t:'Did not save', m:e.message };
+      renderList();
+    });
+}
+
+document.addEventListener('click', function(ev){
+  var btn = ev.target.closest ? ev.target.closest('button') : null;
+  if(!btn) return;
+  var a = btn.getAttribute('data-a');
+  try {
+    if(a === 'setup')   { renderSetup(); return; }
+    if(a === 'testcfg') { testCfg(btn);  return; }
+    if(a === 'add')     { renderAdd();   return; }
+    if(a === 'cancel')  { renderList();  return; }
+    if(a === 'addsave') { addItem();     return; }
+    if(a === 'save')    { save(btn);     return; }
+    if(a === 'del'){
+      items.splice(Number(btn.getAttribute('data-n')), 1);
+      msg = { k:'warn', t:'Removed, not saved yet', m:'Hit Save to publish it.' };
+      renderList();
+      return;
+    }
+  } catch(err){
+    msg = { k:'err', t:'Something broke', m:err.message };
+    renderList();
+  }
+});
+
+if(cfg && cfg.token) load(); else renderSetup();
+
+})();
+</script>
+
+</body>
+</html>
